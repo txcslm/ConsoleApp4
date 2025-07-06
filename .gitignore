@@ -50,3 +50,9 @@ modules.order
 Module.symvers
 Mkfile.old
 dkms.conf
+/ConsoleApp4/bin/Debug/net8.0/ChromeProfile
+ConsoleApp4/bin/Debug/net8.0/ConsoleApp4.deps.json
+ConsoleApp4/bin/Debug/net8.0/ConsoleApp4.runtimeconfig.json
+ConsoleApp4/TEST.json
+/Я вонючка/obj/Debug/net8.0
+/Я вонючка
