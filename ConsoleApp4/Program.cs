@@ -18,6 +18,15 @@ class Program
         var pagesInput = Console.ReadLine();
         if (int.TryParse(pagesInput, out int pages) && pages > 0)
             pagesToScan = pages;
+        
+        Console.Write("Стартовая страница (по умолчанию 1): ");
+        var startPageInput = Console.ReadLine();
+        int startPage = 1;
+        if (int.TryParse(startPageInput, out int start) && start > 0)
+            startPage = start;
+
+        Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] Старт со страницы: {startPage}");
+        Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] Будет отсканировано страниц: {pagesToScan} (с {startPage} по {startPage + pagesToScan - 1})");
 
         Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] Будет отсканировано страниц: {pagesToScan}");
 
@@ -67,7 +76,7 @@ class Program
             // Основной цикл сканирования и сохранения
             var buffer = new List<CharacterInfo>();
             
-            await foreach (var character in scanner.ScanCharactersAsync(segments, minChats, pagesToScan, cts.Token))
+            await foreach (var character in scanner.ScanCharactersAsync(segments, minChats, pagesToScan, cts.Token, startPage))
             {
                 foundCount++;
                 

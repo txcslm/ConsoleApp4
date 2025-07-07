@@ -1,4 +1,4 @@
-namespace ParsingApp;
+using ParsingApp;
 
 public interface ICharacterScraper
 {
@@ -6,5 +6,6 @@ public interface ICharacterScraper
     IEnumerable<string> segments,
     int minChats,
     int pagesToScan,
-    CancellationToken token);
+    CancellationToken token,
+    int startPage = 1); // Добавляем параметр
 }

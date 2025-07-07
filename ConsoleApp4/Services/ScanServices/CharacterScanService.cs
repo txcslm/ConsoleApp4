@@ -1,4 +1,4 @@
-namespace ParsingApp;
+using ParsingApp;
 
 public class CharacterScanService : ICharacterScanService
 {
@@ -13,8 +13,9 @@ public class CharacterScanService : ICharacterScanService
     IEnumerable<string> segments,
     int minChats,
     int pagesToScan,
-    CancellationToken token)
+    CancellationToken token,
+    int startPage = 1) // Добавляем параметр
   {
-    return _scraper.GetPopularCharactersAsync(segments, minChats, pagesToScan, token);
+    return _scraper.GetPopularCharactersAsync(segments, minChats, pagesToScan, token, startPage);
   }
 }

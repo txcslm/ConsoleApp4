@@ -24,7 +24,8 @@ public class SpicySeleniumScraper : ICharacterScraper
         IEnumerable<string> segments,
         int minChats,
         int pagesToScan,
-        CancellationToken token)
+        CancellationToken token,
+        int startPage = 1) // Добавляем параметр стартовой страницы
     {
         var channel = Channel.CreateUnbounded<CharacterInfo>();
 
@@ -32,27 +33,51 @@ public class SpicySeleniumScraper : ICharacterScraper
         {
             try
             {
-                _progress?.Report("NAVIGATE: открываем https://spicychat.ai");
-                _driver.Navigate().GoToUrl("https://spicychat.ai");
-                Thread.Sleep(3000);
+                // Если стартовая страница больше 1, сразу переходим на нужную
+                if (startPage > 1)
+                {
+                    _progress?.Report($"NAVIGATE: открываем страницу {startPage}");
+                    var directUrl = $"https://spicychat.ai/?public_characters_alias%2Fsort%2Fnum_messages_24h%3Adesc%5BsortBy%5D=public_characters_alias&public_characters_alias%2Fsort%2Fnum_messages_24h%3Adesc%5Bpage%5D={startPage}";
+                    _driver.Navigate().GoToUrl(directUrl);
+                    Thread.Sleep(5000); // Даем больше времени на загрузку глубокой страницы
+                }
+                else
+                {
+                    _progress?.Report("NAVIGATE: открываем https://spicychat.ai");
+                    _driver.Navigate().GoToUrl("https://spicychat.ai");
+                    Thread.Sleep(3000);
 
-                _progress?.Report("CLICK: нажимаем Trending");
-                _wait.Until(d => d.FindElement(By.XPath("//*[@aria-label='Trending']"))).Click();
+                    _progress?.Report("CLICK: нажимаем Trending");
+                    _wait.Until(d => d.FindElement(By.XPath("//*[@aria-label='Trending']"))).Click();
 
-                _progress?.Report("CLICK: нажимаем Popular");
-                _wait.Until(d => d.FindElement(By.XPath("//button[@aria-label='Popular']"))).Click();
-                Thread.Sleep(2000);
+                    _progress?.Report("CLICK: нажимаем Popular");
+                    _wait.Until(d => d.FindElement(By.XPath("//button[@aria-label='Popular']"))).Click();
+                    Thread.Sleep(2000);
+                }
 
-                for (int page = 1; page <= pagesToScan; page++)
+                // Корректируем цикл с учетом стартовой страницы
+                int endPage = startPage + pagesToScan - 1;
+                
+                for (int page = startPage; page <= endPage; page++)
                 {
                     token.ThrowIfCancellationRequested();
-                    _progress?.Report($"PAGE {page}/{pagesToScan}");
+                    _progress?.Report($"PAGE {page} (обработано {page - startPage + 1} из {pagesToScan})");
 
                     _progress?.Report($"FIND: контейнер карточек");
-                    var container = _wait.Until(d => d.FindElement(By.XPath(CardsContainerXPath)));
+                    
+                    // Увеличиваем таймаут для глубоких страниц
+                    var longWait = new WebDriverWait(_driver, TimeSpan.FromSeconds(30));
+                    var container = longWait.Until(d => d.FindElement(By.XPath(CardsContainerXPath)));
 
                     var cards = container.FindElements(By.XPath("./div")).ToList();
                     _progress?.Report($"FOUND: карточек на странице — {cards.Count}");
+
+                    // Если карточек мало или нет - возможно достигли конца
+                    if (cards.Count == 0)
+                    {
+                        _progress?.Report($"[WARNING] На странице {page} нет карточек. Возможно, достигнут конец списка.");
+                        break;
+                    }
 
                     // Быстрая проверка страницы
                     if (_exportService != null)
@@ -80,11 +105,20 @@ public class SpicySeleniumScraper : ICharacterScraper
                         if (newOnPage == 0)
                         {
                             _progress?.Report($"[SKIP PAGE] Все {cards.Count} персонажей уже в базе!");
-                            if (page < pagesToScan)
+                            if (page < endPage)
                             {
                                 if (!TryClickNextPage())
-                                    break;
-                                Thread.Sleep(2000);
+                                {
+                                    // Если не можем кликнуть Next, пробуем прямой переход
+                                    _progress?.Report($"NAVIGATE: прямой переход на страницу {page + 1}");
+                                    var nextUrl = $"https://spicychat.ai/?public_characters_alias%2Fsort%2Fnum_messages_24h%3Adesc%5BsortBy%5D=public_characters_alias&public_characters_alias%2Fsort%2Fnum_messages_24h%3Adesc%5Bpage%5D={page + 1}";
+                                    _driver.Navigate().GoToUrl(nextUrl);
+                                    Thread.Sleep(3000);
+                                }
+                                else
+                                {
+                                    Thread.Sleep(2000);
+                                }
                             }
                             continue;
                         }
@@ -149,14 +183,23 @@ public class SpicySeleniumScraper : ICharacterScraper
                         }
                     }
 
-                    _progress?.Report($"[PAGE SUMMARY] Обработано: {processedOnPage}, Публичных: {publicFound}");
+                    _progress?.Report($"[PAGE SUMMARY] Страница {page}: Обработано: {processedOnPage}, Публичных: {publicFound}");
 
                     // Переход на следующую страницу
-                    if (page < pagesToScan)
+                    if (page < endPage)
                     {
                         if (!TryClickNextPage())
-                            break;
-                        Thread.Sleep(2000);
+                        {
+                            // Используем прямой переход если кнопка не работает
+                            _progress?.Report($"NAVIGATE: прямой переход на страницу {page + 1}");
+                            var nextUrl = $"https://spicychat.ai/?public_characters_alias%2Fsort%2Fnum_messages_24h%3Adesc%5BsortBy%5D=public_characters_alias&public_characters_alias%2Fsort%2Fnum_messages_24h%3Adesc%5Bpage%5D={page + 1}";
+                            _driver.Navigate().GoToUrl(nextUrl);
+                            Thread.Sleep(3000);
+                        }
+                        else
+                        {
+                            Thread.Sleep(2000);
+                        }
                     }
                 }
 
